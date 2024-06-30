@@ -1,0 +1,4 @@
+streamlit==1.36.0
+mariadb==1.1.10
+streamlit-option-menu==0.3.6
+plotly==5.18.0
