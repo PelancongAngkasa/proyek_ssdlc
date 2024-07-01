@@ -16,6 +16,7 @@ def login():
                 st.session_state['name'] = user['name']
                 st.session_state['username'] = user['username']
                 st.success(f"Selamat Datang, {user['name']}!")
+                st.switch_page('pages\main.py')
             else:
                 st.error("Invalid username or password")
 
@@ -38,10 +39,6 @@ def register():
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-if st.session_state['logged_in']:
-    st.write("Mengalihkan ke Halaman Utama...")
-    st.switch_page('main')
-    st.stop()
 else:
     selected = st.sidebar.selectbox("Pilih Opsi", ["Login", "Register"])
 
