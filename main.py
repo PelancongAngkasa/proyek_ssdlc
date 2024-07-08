@@ -6,9 +6,9 @@ from streamlit_option_menu import option_menu
 import database as db
 
 pendapatans = ["Gaji", "Blog", "Pendapatan Lainnya"]
-pengeluarans = ["Kos", "Pajak", "Makan", "Hiburan","Tabungan"]
+pengeluarans = ["Kos", "Pajak", "Makan", "Hiburan", "Tabungan"]
 mata_uang = "IDR"
-judul = "Pencacatan Pendapatan dan Pengeluaran"
+judul = "Pencatatan Pendapatan dan Pengeluaran"
 icon = ":money_with_wings:"
 layout = "centered"
 
@@ -19,18 +19,28 @@ if 'name' in st.session_state:
     st.subheader(f"Selamat datang, {st.session_state['name']}!")
 
 tahun = [datetime.today().year, datetime.today().year + 1]
-bulan = list(calendar.month_name[1:]) 
+bulan = list(calendar.month_name[1:])
 
 def get_all_periods():
-    items = db.fetch_all_periods()
-    periods = [item["key"] for item in items]
-    return periods
+    if 'name' in st.session_state:
+        items = db.fetch_all_periods(st.session_state['name'])
+        if isinstance(items, list):
+            periods = [item[0] for item in items]
+            return periods
+    return []
+
+def get_all_expenditures():
+    if 'name' in st.session_state:
+        items = db.fetch_all_expenditures(st.session_state['name'])
+        if isinstance(items, list):
+            return items
+    return []
 
 with st.sidebar:
     selected = option_menu(
         menu_title=None,
-        options=["Masukkan Data", "Visualisasi Data"],
-        icons=["pencil-fill", "bar-chart-fill"], 
+        options=["Dashboard", "Masukkan Data", "Visualisasi Data", "Edit Data", "Hapus Data"],
+        icons=["graph-up-arrow","box-arrow-right", "bar-chart-fill", "pencil-fill", "trash"], 
         orientation="vertical",
     )
 
@@ -47,7 +57,35 @@ with st.sidebar:
 # Redirect to login page if not logged in
 if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
     st.warning("Please log in to access this page.")
-    st.switch_page("login.py")
+    st.stop()
+
+if selected == "Dashboard":
+    st.header("Dashboard")
+    expenditures = get_all_expenditures()
+    if expenditures:
+        labels = [item['periode'] for item in expenditures]
+        values = [item['pengeluaran'] for item in expenditures]
+        
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=labels,
+            y=values,
+            mode='lines+markers',
+            name='Pengeluaran',
+            line=dict(color='#1f77b4', width=2),
+            marker=dict(size=8)
+        ))
+
+        fig.update_layout(
+            title="Performa Pengeluaran",
+            xaxis_title="Periode",
+            yaxis_title=f"Jumlah ({mata_uang})",
+            margin=dict(l=0, r=0, t=40, b=20)
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.write("No data available")
 
 if selected == "Masukkan Data":
     st.header(f"Masukkan Data dengan {mata_uang}")
@@ -56,62 +94,101 @@ if selected == "Masukkan Data":
         bulan = col1.selectbox("Pilih Bulan:", bulan, key="bulan")
         tahun = col2.selectbox("Pilih Tahun:", tahun, key="tahun")
 
+        total_pemasukan = 0
+        total_pengeluaran = 0
+
         with st.expander("Pemasukan"):
             for pendapatan in pendapatans:
-                st.number_input(f"{pendapatan}:", min_value=0, format="%i", step=1000000, key=pendapatan)
+                total_pemasukan += st.number_input(f"{pendapatan}:", min_value=0, format="%i", step=1000000, key=pendapatan)
         with st.expander("Pengeluaran"):
             for pengeluaran in pengeluarans:
-                st.number_input(f"{pengeluaran}:", min_value=0, format="%i", step=1000000, key=pengeluaran)
+                total_pengeluaran += st.number_input(f"{pengeluaran}:", min_value=0, format="%i", step=1000000, key=pengeluaran)
         with st.expander("Catatan"):
             catatan = st.text_area("", placeholder="berikan catatan")
         
         submitted = st.form_submit_button("Simpan Data")
         if submitted:
-            periode = f"{st.session_state['tahun']} {st.session_state['bulan']}"
-            pendapatans = {pendapatan: st.session_state[pendapatan] for pendapatan in pendapatans}
-            pengeluarans = {pengeluaran: st.session_state[pengeluaran] for pengeluaran in pengeluarans}
+            periode = str(st.session_state["tahun"]) + "_" + str(st.session_state["bulan"])
             name = st.session_state['name']
-            #masukin ke database nanti
-            db.insert_period(name, periode, pendapatans, pengeluarans, catatan)
+            db.insert_period(name, periode, total_pemasukan, total_pengeluaran, catatan)
             st.success("Data saved!")
-            
 
-    #plot
+if selected == "Edit Data":
+    st.header("Edit Data Keuangan")
+    periods = get_all_periods()
+    if periods:
+        period_to_edit = st.selectbox("Pilih Periode untuk Diedit:", periods)
+        periode_data = db.get_period(st.session_state['name'], period_to_edit)
+        if periode_data:
+            with st.form("update_form", clear_on_submit=True):
+                catatan = periode_data.get("catatan")
+                total_pengeluaran = periode_data.get("pengeluaran")
+                total_pemasukan = periode_data.get("pemasukan")
+
+                total_pemasukan = st.number_input("Total Pemasukan", value=periode_data["pemasukan"], min_value=0, step=1000000)
+                total_pengeluaran = st.number_input("Total Pengeluaran", value=periode_data["pengeluaran"], min_value=0, step=1000000)
+                catatan = st.text_area("Catatan", value=periode_data["catatan"])
+                
+                submitted = st.form_submit_button("Perbarui Data Data")
+                if submitted:
+                    db.update_period(st.session_state['name'], period_to_edit, total_pemasukan, total_pengeluaran, catatan)
+                    st.success("Data berhasil diperbarui!")
+    else:
+        st.write("Tidak ada data yang tersedia untuk diedit.")
+
+if selected == "Hapus Data":
+    st.header("Hapus Data Keuangan")
+    periods = get_all_periods()
+    if periods:
+        period_to_delete = st.selectbox("Pilih Periode untuk Dihapus:", periods)
+        if st.button("Hapus Data"):
+            db.delete_period(st.session_state['name'], period_to_delete)
+            st.success("Data berhasil dihapus!")
+    else:
+        st.write("Tidak ada data yang tersedia untuk dihapus.")
+
 if selected == "Visualisasi Data":
     st.header("Visualisasi Data")
     with st.form("saved_periods"):
+        name = st.session_state['name']
         period = st.selectbox("Select Period:", get_all_periods())
         submitted = st.form_submit_button("Tampilkan Grafik")
         if submitted:
-            # Get data from database
-            periode_data = db.get_period(period)
-            Komentar = periode_data.get("catatan")
-            pengeluarans = periode_data.get("pengeluaran")
-            pendapatans = periode_data.get("pemasukan")
+            periode_data = db.get_period(name, period)
+            if isinstance(periode_data, dict):
+                catatan = periode_data.get("catatan")
+                total_pengeluaran = periode_data.get("pengeluaran")
+                total_pemasukan = periode_data.get("pemasukan")
 
-            # Create metrics
-            total_income = sum(pendapatan.values())
-            total_expense = sum(pengeluarans.values())
-            remaining_budget = total_income - total_expense
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Total Pemasukan", f"{total_income} {mata_uang}")
-            col2.metric("Total Pengeluaran", f"{total_expense} {mata_uang}")
-            col3.metric("Sisa Budget", f"{remaining_budget} {mata_uang}")
-            st.text(f"Catatan: {catatan}")
+                
+                total_pengeluaran = int(total_pengeluaran)
+                total_pemasukan = int(total_pemasukan)
+               
 
-            # Create sankey chart
-            label = list(pendapatans.keys()) + ["Total Income"] + list(pengeluarans.keys())
-            source = list(range(len(pendapatans))) + [len(pendapatans)] * len(pengeluarans)
-            target = [len(pendapatans)] * len(pendapatans) + [label.index(pengeluaran) for pengeluaran in pengeluarans.keys()]
-            value = list(pendapatans.values()) + list(pengeluarans.values())
+                remaining_budget = total_pemasukan - total_pengeluaran
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Total Pemasukan", f"{total_pemasukan} {mata_uang}")
+                col2.metric("Total Pengeluaran", f"{total_pengeluaran} {mata_uang}")
+                col3.metric("Sisa Budget", f"{remaining_budget} {mata_uang}")
+                st.text(f"Catatan: {catatan}")
 
-            # Data to dict, dict to sankey
-            link = dict(source=source, target=target, value=value)
-            node = dict(label=label, pad=20, thickness=30, color="#E694FF")
-            data = go.Sankey(link=link, node=node)
-
-            # Plot it!
-            fig = go.Figure(data)
-            fig.update_layout(margin=dict(l=0, r=0, t=5, b=5))
-            st.plotly_chart(fig, use_container_width=True)  
-        
+                labels = ["Total Pemasukan", "Total Pengeluaran"]
+                values = [total_pemasukan, total_pengeluaran]
+                
+                # Create Line Chart
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=labels,
+                    y=values,
+                    name='Pemasukan dan Pengeluaran',
+                    marker_color='#1f77b4'
+                ))
+                
+                fig.update_layout(
+                    title="Pemasukan dan Pengeluaran",
+                    xaxis_title="Kategori",
+                    yaxis_title=f"Jumlah ({mata_uang})",
+                    margin=dict(l=0, r=0, t=40, b=20)
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
