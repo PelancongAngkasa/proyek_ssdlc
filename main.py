@@ -129,7 +129,7 @@ if selected == "Edit Data":
                 total_pengeluaran = st.number_input("Total Pengeluaran", value=periode_data["pengeluaran"], min_value=0, step=1000000)
                 catatan = st.text_area("Catatan", value=periode_data["catatan"])
                 
-                submitted = st.form_submit_button("Perbarui Data Data")
+                submitted = st.form_submit_button("Perbarui Data")
                 if submitted:
                     db.update_period(st.session_state['name'], period_to_edit, total_pemasukan, total_pengeluaran, catatan)
                     st.success("Data berhasil diperbarui!")
@@ -141,14 +141,14 @@ if selected == "Hapus Data":
     periods = get_all_periods()
     if periods:
         period_to_delete = st.selectbox("Pilih Periode untuk Dihapus:", periods)
-        if st.button("Hapus Data"):
+        if st.button("Hapus"):
             db.delete_period(st.session_state['name'], period_to_delete)
             st.success("Data berhasil dihapus!")
     else:
         st.write("Tidak ada data yang tersedia untuk dihapus.")
 
 if selected == "Visualisasi Data":
-    st.header("Visualisasi Data")
+    st.header("Grafik Data")
     with st.form("saved_periods"):
         name = st.session_state['name']
         period = st.selectbox("Select Period:", get_all_periods())
