@@ -22,7 +22,7 @@ def insert_period(name, periode, pemasukan, pengeluaran, catatan):
             (name, periode, pemasukan, pengeluaran, catatan)
         )
         conn.commit()
-        return cursor.rowcount, "Insert successful"
+        return cursor.rowcount
     except mariadb.Error as e:
         return f"Error: {e}"
     finally:
@@ -38,7 +38,7 @@ def update_period(name, periode, pemasukan, pengeluaran, catatan):
             (pemasukan, pengeluaran, catatan, name, periode)
         )
         conn.commit()
-        return cursor.rowcount, "Update successful"
+        return cursor.rowcount, 
     except mariadb.Error as e:
         return f"Error: {e}"
     finally:
@@ -51,7 +51,7 @@ def delete_period(name, periode):
     try:
         cursor.execute("DELETE FROM periods WHERE name = ? AND periode = ?", (name, periode))
         conn.commit()
-        return cursor.rowcount, "Delete successful"
+        return cursor.rowcount, 
     except mariadb.Error as e:
         return f"Error: {e}"
     finally:
@@ -68,7 +68,7 @@ def insert_user(username, name, password):
             (username, name, hashed_password)
         )
         conn.commit()
-        return cursor.rowcount, "Insert successful"
+        return cursor.rowcount, 
     except mariadb.Error as e:
         return f"Error: {e}"
     finally:
@@ -144,7 +144,7 @@ def insert_user(username, name, password):
             (username, name, hashed_password)
         )
         conn.commit()
-        return cursor.rowcount, "Insert successful"
+        return cursor.rowcount, 
     except mariadb.Error as e:
         return f"Error: {e}"
     finally:
